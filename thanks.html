@@ -89,16 +89,25 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     try {
         status.textContent = 'Verifying GNU Taler sandbox payment...';
         const backend = 'https://backend.demo.taler.net/instances/sandbox';
-        const response = await fetch(backend + '/private/orders/' + encodeURIComponent(orderId), {
-            headers: { 'Authorization': 'Bearer secret-token:sandbox' }
+        // The public order-status endpoint is intentionally unauthenticated and is
+        // designed for browser-based shop integrations. The private endpoint requires
+        // a merchant login token and must not expose merchant credentials in this page.
+        const response = await fetch(backend + '/orders/' + encodeURIComponent(orderId), {
+            headers: { 'Accept': 'application/json' }
         });
-        const payment = await response.json();
-        if (!response.ok) throw new Error(payment.detail || 'Could not verify payment.');
 
-        if (payment.order_status !== 'paid') {
+        // GNU Taler returns 200 for paid orders and 402 for orders still awaiting payment.
+        // Do not treat redirects, 202, or other successful HTTP statuses as proof of payment.
+        if (response.status === 402) {
             status.textContent = 'Payment not confirmed. Your order has NOT been submitted. Complete the payment in your GNU Taler wallet, then refresh this page.';
             return;
         }
+        if (response.status !== 200) {
+            let failure = {};
+            try { failure = await response.json(); } catch (_) {}
+            throw new Error(failure.detail || failure.hint || ('Merchant backend returned HTTP ' + response.status + '.'));
+        }
+        const payment = await response.json();
 
         const saved = sessionStorage.getItem('platinumTalerPendingOrder');
         if (!saved) {
