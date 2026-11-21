@@ -75,7 +75,14 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     const urlOrderId = params.get('order_id');
     // Prefer the ID supplied by Taler. If an older checkout returned the literal
     // placeholder, recover the actual ID saved before redirecting to the wallet.
-    const savedOrderId = sessionStorage.getItem('platinumTalerOrderId');
+    const savedOrderId = (() => {
+        try {
+            return localStorage.getItem('platinumTalerOrderId') ||
+                sessionStorage.getItem('platinumTalerOrderId');
+        } catch (_) {
+            return sessionStorage.getItem('platinumTalerOrderId');
+        }
+    })();
     const orderId = (urlOrderId && urlOrderId !== '${ORDER_ID}')
         ? urlOrderId
         : savedOrderId;
@@ -119,34 +126,71 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
         }
         const payment = await response.json();
 
-        const saved = sessionStorage.getItem('platinumTalerPendingOrder');
-        if (!saved) {
-            status.textContent = 'Payment verified, but this browser no longer has the pending order details. Please contact the restaurant with Taler order ID ' + orderId + '.';
-            return;
+        const savedOrderJson = (() => {
+            try {
+                return localStorage.getItem('platinumTalerPendingOrder') ||
+                    sessionStorage.getItem('platinumTalerPendingOrder');
+            } catch (_) {
+                return sessionStorage.getItem('platinumTalerPendingOrder');
+            }
+        })();
+        const savedFlagKey = 'platinumTalerSaved:' + orderId;
+        let alreadySaved = false;
+        try {
+            alreadySaved = localStorage.getItem(savedFlagKey) === 'yes' ||
+                sessionStorage.getItem(savedFlagKey) === 'yes';
+        } catch (_) {
+            alreadySaved = sessionStorage.getItem(savedFlagKey) === 'yes';
         }
 
-        const alreadySaved = sessionStorage.getItem('platinumTalerSaved:' + orderId);
+        let verifiedOrder = null;
         if (!alreadySaved) {
-            const orderData = JSON.parse(saved);
+            if (!savedOrderJson) {
+                status.textContent = 'Payment verified, but the pending order details could not be recovered. Please contact the restaurant with Taler order ID ' + orderId + '.';
+                return;
+            }
+
+            verifiedOrder = JSON.parse(savedOrderJson);
             const client = window.supabase.createClient(
                 'https://rrpnmxucqlpaaueufsmb.supabase.co',
-                'sb_publishable_scPdBcRV7V0X_N1IaZPsw_BxxCvxmN'
+                'sb_publishable_scPdBcRV7V0X_NV1IaZPsw_BxxCvxmN'
             );
             const { data: { session } } = await client.auth.getSession();
-            orderData.user_id = session?.user?.id || orderData.user_id || null;
-            orderData.cardtype = 'GNU Taler (Sandbox - KUDOS test)';
-            const { error } = await client.from('orders').insert([orderData]);
+            verifiedOrder.user_id = session?.user?.id || verifiedOrder.user_id || null;
+            verifiedOrder.cardtype = 'GNU Taler (Sandbox - KUDOS test)';
+            const { error } = await client.from('orders').insert([verifiedOrder]);
             if (error) throw error;
-            sessionStorage.setItem('platinumTalerSaved:' + orderId, 'yes');
+
+            try {
+                localStorage.setItem(savedFlagKey, 'yes');
+                localStorage.removeItem('platinumTalerPendingOrder');
+                localStorage.removeItem('platinumTalerOrderId');
+            } catch (_) {}
+            sessionStorage.setItem(savedFlagKey, 'yes');
             sessionStorage.removeItem('platinumTalerPendingOrder');
+        } else if (savedOrderJson) {
+            verifiedOrder = JSON.parse(savedOrderJson);
         }
 
-        const verifiedOrder = JSON.parse(saved);
-        const verifiedTotal = ['personpizza', 'onemancombo', 'gpizza', 'garbread']
-            .reduce((sum, field) => sum + ((Number.parseInt(verifiedOrder[field], 10) || 0) * 5), 0);
+        const verifiedTotal = verifiedOrder
+            ? ['personpizza', 'onemancombo', 'gpizza', 'garbread']
+                .reduce((sum, field) => sum + ((Number.parseInt(verifiedOrder[field], 10) || 0) * 5), 0)
+            : null;
         status.style.borderColor = 'green';
-        status.textContent = 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS ' + verifiedTotal.toFixed(2) + ' (test currency only).';
+        status.textContent = verifiedTotal === null
+            ? 'GNU Taler sandbox payment verified and your order was already submitted. Opening your Taler order...'
+            : 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS ' + verifiedTotal.toFixed(2) + ' (test currency only). Opening your Taler order...';
+
+        const talerOrderUrl = 'https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(orderId);
+        talerOrderLink.href = talerOrderUrl;
+        talerOrderLink.textContent = 'Open GNU Taler order now';
+        try {
+            localStorage.removeItem('platinumTalerOrderId');
+        } catch (_) {}
         sessionStorage.removeItem('platinumTalerOrderId');
+
+        // Automatically open the confirmed order page after the restaurant order is saved.
+        window.setTimeout(() => window.location.replace(talerOrderUrl), 1800);
     } catch (error) {
         console.error('Taler payment verification failed:', error);
         status.textContent = 'We could not verify this GNU Taler payment: ' + (error.message || 'Unknown error') + '. Your order has not been submitted.';
