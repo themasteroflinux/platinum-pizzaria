@@ -169,6 +169,8 @@ orderForm.addEventListener('submit', async (e) => {
             const fulfillment = new URL('thanks.html', window.location.href);
             fulfillment.searchParams.set('driver', selectedDriver);
             fulfillment.searchParams.set('name', customerName);
+            // GNU Taler replaces this placeholder with the real merchant order ID.
+            fulfillment.searchParams.set('order_id', '${ORDER_ID}');
 
             const createResponse = await fetch(backend + '/private/orders', {
                 method: 'POST',
@@ -191,14 +193,9 @@ orderForm.addEventListener('submit', async (e) => {
             }
 
             sessionStorage.setItem('platinumTalerOrderId', created.order_id);
-            const statusResponse = await fetch(backend + '/private/orders/' + encodeURIComponent(created.order_id), {
-                headers: { 'Authorization': auth }
-            });
-            const status = await statusResponse.json();
-            if (!statusResponse.ok || !status.payment_redirect_url) {
-                throw new Error(status.detail || 'Could not obtain the GNU Taler payment link.');
-            }
-            window.location.assign(status.payment_redirect_url);
+            // The public order-status URL starts the wallet checkout when the order is unpaid.
+            // Keep the merchant authorization token out of the customer-facing redirect URL.
+            window.location.assign(backend.replace('/instances/sandbox', '/instances/sandbox') + '/orders/' + encodeURIComponent(created.order_id));
             return;
         }
 
