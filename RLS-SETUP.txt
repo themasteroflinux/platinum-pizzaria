@@ -1,0 +1,19 @@
+Platinum Pizzaria RLS update
+
+Changes in this package:
+- Added rewards.html for Supabase Auth email/password sign-in, signup, reset email, and member view.
+- Added reset-password.html.
+- Updated ordering pages to attach user_id when a customer is signed in.
+- Removed credit-card-number collection from the ordering UI. Payment method is retained; no card number is sent to Supabase.
+- Replaced the client-side manager password with Supabase Auth in admin.html. Manager access expects the signed-in user's app_metadata.role to be manager or admin.
+- Updated the home page Rewards link.
+
+Database already updated:
+- public.orders has RLS enabled and user_id references auth.users.
+- public.reward_accounts has RLS enabled and is scoped to the signed-in user.
+
+Before using admin.html:
+Assign the manager/admin role to the intended Supabase Auth user using trusted server-side/admin tooling. Do not put a manager password or service/secret API key in browser code.
+
+Payment note:
+The old database still contains a `card` column. The current site no longer writes or displays it. Removing that column should be done as a separate migration after confirming no other application depends on it.

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Select A Driver | Platinum Pizzaria</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        html { background-color: silver; font-family: arial; }
+        div.header {
+            background-color: #C1C6C8;
+            color: black;
+            width: 100%;
+            top: 0px;
+            position: fixed;
+            left: 0px;
+            padding: 10px;
+            border-bottom: solid 2px;
+            z-index: 1000;
+        }
+        a { color: black; text-decoration: none; }
+        .container { margin-top: 120px; padding: 20px; }
+        div.driver {
+            border: solid 2px;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: rgba(255,255,255,0.3);
+        }
+        button, input[type="submit"] {
+            background-color: blue;
+            border: none;
+            border-radius: 50px;
+            color: white;
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        hr { background-color: black; border: none; height: 2px; }
+        input[type="number"], input[type="text"] { padding: 5px; margin-bottom: 10px; }
+    </style>
+    <link rel="icon" type="image/x-icon" href="fav.png">
+</head>
+<body>
+
+<div class="header">
+    <img src="logo.png" height="40px"><br>
+    <a href="index.html">Home | </a>
+    <a href="menu.html">Menu | </a>
+    <a href="rewards.html">Rewards</a> | <a href="#">Order</a>
+</div>
+
+<div class="container">
+    <p id="account-note" style="border:1px solid #333;padding:10px;background:#fff3cd">Checking rewards account...</p>
+    <form id="orderForm">
+        <div class="driver">
+            <h1>Select A Driver</h1>
+            <input type="radio" name="driver" id="jn" value="Jason Naish" required>
+            <label for="jn">Jason Naish</label><br>
+            <input type="radio" name="driver" id="dd" value="Deacon Danford" required>
+            <label for="dd">Deacon Danford</label><br>
+            <input type="radio" id="fk" name="driver" value="Fox Kay" required>
+            <label for="fk">Fox Kay</label><br>
+            <input type="radio" id="js" name="driver" value="Jaemon Spano" required>
+            <label for="js">Jaemon Spano</label><br>
+            <input type="radio" id="ns" name="driver" value="Norah Sellner" required>
+            <label for="ns">Norah Sellner</label><br>
+            <input type="radio" id="gm" name="driver" value="Greer Moses" required>
+            <label for="gm">Greer Moses</label><br>
+            <input type="radio" id="vg" name="driver" value="Vera Genourous" required>
+            <label for="vg">Vera Genourous</label><br>
+            <input type="radio" id="cg" name="driver" value="Claire Gross" required>
+            <label for="cg">Claire Gross</label><br>
+            <input type="radio" id="jf" name="driver" value="Jacob Fitzhugh" required>
+            <label for="jf">Jacob Fitzhugh</label><br>
+            <input type="radio" id="jb" name="driver" value="Jaxson Bennett" required>
+            <label for="jb">Jaxson Bennett</label><br>
+            
+            <input type="radio" id="tg" name="driver" value="Tyler Grill" required>
+            <label for="tg">Tyler Grill</label><br>
+            
+            <input type="radio" id="l0" name="driver" value="Lucas" required>
+            <label for="l0">Lucas</label><br>
+            <input type="radio" id="m0" name="driver" value="Miles" required>
+            <label for="m0">Miles</label><br>
+        </div>
+
+        <div class="driver">
+            <h1>Order Details</h1>
+            <p>Personal Pizza</p><input type="number" min="0" max="10" name="personpizza" value="0">
+            <hr>
+            <p>One Man Combo</p><input type="number" min="0" max="10" name="onemancombo" value="0"> 
+            <hr>
+            <p>Group Pizza</p><input type="number" min="0" max="10" name="gpizza" value="0">
+            <hr>
+            <p>Garlic Bread</p><input type="number" min="0" max="10" name="garbread" value="0">
+        </div>
+
+        <div class="driver">
+            <h1>Order Name</h1>
+            <input name="customer_name" type="text" required>
+            <hr>
+            <h1>Payment Method</h1>
+            <input type="radio" id="card_payment" name="payment_method" value="Credit/Debit" required>
+            <label for="card_payment">Credit/Debit</label><br>
+            
+            <input type="radio" id="v" name="payment_method" value="Venmo" required>
+            <label for="v">Venmo</label><br>
+            <input type="radio" id="p" name="payment_method" value="PayPal" required>
+            <label for="p">PayPal</label><br>
+            <input type="radio" id="r" name="payment_method" value="ROTK E-port" required>
+            <label for="r">ROTK E-port</label><br>
+            <br><br>
+            <input type="submit" value="Place Order">
+        </div>
+    </form>
+</div>
+<script>
+// 1. Initialize Supabase
+const _supabaseUrl = 'https://rrpnmxucqlpaaueufsmb.supabase.co';
+const _supabaseKey = 'sb_publishable_scPdBcRV7V0X_VN1IaZPsw_BxxCvxmN';
+
+const db = supabase.createClient(_supabaseUrl, _supabaseKey);
+
+const accountNote=document.getElementById('account-note');
+db.auth.getSession().then(({data:{session}})=>{ accountNote.textContent=session?.user ? `Signed in as ${session.user.email}. This order will be linked to your rewards account.` : 'Not signed in. You can still order, but this order will not be linked to a rewards account.'; });
+
+const orderForm = document.getElementById('orderForm');
+
+orderForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(orderForm);
+    
+    const customerName = formData.get('customer_name');
+    const selectedDriver = formData.get('driver');
+
+    const { data: { session } } = await db.auth.getSession();
+
+    const orderData = {
+        user_id: session?.user?.id || null,
+        driver: selectedDriver,
+        name: customerName,
+        personpizza: parseInt(formData.get('personpizza')) || 0,
+        onemancombo: parseInt(formData.get('onemancombo')) || 0,
+        gpizza: parseInt(formData.get('gpizza')) || 0,
+        garbread: parseInt(formData.get('garbread')) || 0,
+        cardtype: formData.get('payment_method')
+    };
+
+    const { data, error } = await db
+        .from('orders') 
+        .insert([orderData]);
+
+    if (error) {
+        console.error('Supabase Error:', error);
+        alert('Error: ' + error.message);
+    } else {
+        window.location.href = `thanks.html?driver=${encodeURIComponent(selectedDriver)}&name=${encodeURIComponent(customerName)}`;
+    }
+});
+</script>
+</body>
+</html>
