@@ -111,8 +111,9 @@
             <label for="r">ROTK E-port</label><br>
             <input type="radio" id="taler_payment" name="payment_method" value="GNU Taler (Sandbox)" required>
             <label for="taler_payment">GNU Taler (Sandbox — KUDOS test payment)</label><br>
-            <p style="background:#fff3cd;padding:10px;border:1px solid #856404">
-              GNU Taler is currently in sandbox mode. This test checkout charges a fixed KUDOS 5.00 regardless of selected items. KUDOS are test currency, not real money.
+            <p id="taler-price-note" style="background:#fff3cd;padding:10px;border:1px solid #856404">
+              GNU Taler sandbox prices: Personal Pizza KUDOS 5.00, One Man Combo KUDOS 5.00, Group Pizza KUDOS 5.00, Garlic Bread KUDOS 5.00. Your total is calculated from the quantities selected. KUDOS are test currency, not real money.
+              <br><strong>GNU Taler total: <span id="taler-total">KUDOS 0.00</span></strong>
             </p>
             <br><br>
             <input type="submit" value="Place Order">
@@ -130,6 +131,28 @@ const accountNote=document.getElementById('account-note');
 db.auth.getSession().then(({data:{session}})=>{ accountNote.textContent=session?.user ? `Signed in as ${session.user.email}. This order will be linked to your rewards account.` : 'Not signed in. You can still order, but this order will not be linked to a rewards account.'; });
 
 const orderForm = document.getElementById('orderForm');
+
+// Current GNU Taler sandbox inventory prices. All four inventory items are KUDOS 5.00 each.
+const TALER_UNIT_PRICE = 5;
+const talerQuantityFields = ['personpizza', 'onemancombo', 'gpizza', 'garbread'];
+const talerTotalDisplay = document.getElementById('taler-total');
+
+function getTalerOrderTotal(formData) {
+    return talerQuantityFields.reduce((total, field) => {
+        const quantity = Number.parseInt(formData.get(field), 10) || 0;
+        return total + (quantity * TALER_UNIT_PRICE);
+    }, 0);
+}
+
+function updateTalerTotalPreview() {
+    const total = getTalerOrderTotal(new FormData(orderForm));
+    talerTotalDisplay.textContent = 'KUDOS ' + total.toFixed(2);
+}
+
+talerQuantityFields.forEach((field) => {
+    orderForm.elements[field].addEventListener('input', updateTalerTotalPreview);
+});
+updateTalerTotalPreview();
 
 orderForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -166,6 +189,18 @@ orderForm.addEventListener('submit', async (e) => {
             const auth = 'Bearer secret-token:sandbox';
             sessionStorage.setItem('platinumTalerPendingOrder', JSON.stringify(orderData));
 
+            const talerTotal = getTalerOrderTotal(formData);
+            if (!Number.isSafeInteger(talerTotal) || talerTotal <= 0) {
+                throw new Error('Please enter a valid order quantity.');
+            }
+
+            const itemSummary = [
+                orderData.personpizza ? orderData.personpizza + ' Personal Pizza' : '',
+                orderData.onemancombo ? orderData.onemancombo + ' One Man Combo' : '',
+                orderData.gpizza ? orderData.gpizza + ' Group Pizza' : '',
+                orderData.garbread ? orderData.garbread + ' Garlic Bread' : ''
+            ].filter(Boolean).join(', ');
+
             const fulfillment = new URL('thanks.html', window.location.href);
             fulfillment.searchParams.set('driver', selectedDriver);
             fulfillment.searchParams.set('name', customerName);
@@ -180,8 +215,8 @@ orderForm.addEventListener('submit', async (e) => {
                 },
                 body: JSON.stringify({
                     order: {
-                        amount: 'KUDOS:5',
-                        summary: 'Platinum Pizzaria sandbox test order',
+                        amount: 'KUDOS:' + talerTotal.toFixed(2),
+                        summary: 'Platinum Pizzaria: ' + itemSummary,
                         fulfillment_url: fulfillment.toString()
                     },
                     create_token: false
