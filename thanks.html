@@ -67,3 +67,59 @@ document.getElementById("orderd").innerHTML = " Driver: " + driver;
 let name = params.get("name"); // is the string "Jonathan"
 document.getElementById("name").innerHTML = "Order Name: " + name;
 </script>
+
+<script>
+(async function verifyTalerReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    if (!orderId) return;
+
+    const status = document.createElement('p');
+    status.id = 'taler-payment-status';
+    status.style.cssText = 'padding:14px;border:2px solid #333;background:#fff;margin:15px 0;font-weight:bold';
+    document.body.insertBefore(status, document.body.querySelector('h1'));
+
+    try {
+        status.textContent = 'Verifying GNU Taler sandbox payment...';
+        const backend = 'https://backend.demo.taler.net/instances/sandbox';
+        const response = await fetch(backend + '/private/orders/' + encodeURIComponent(orderId), {
+            headers: { 'Authorization': 'Bearer secret-token:sandbox' }
+        });
+        const payment = await response.json();
+        if (!response.ok) throw new Error(payment.detail || 'Could not verify payment.');
+
+        if (payment.order_status !== 'paid') {
+            status.textContent = 'Payment not confirmed. Your order has NOT been submitted. Complete the payment in your GNU Taler wallet, then refresh this page.';
+            return;
+        }
+
+        const saved = sessionStorage.getItem('platinumTalerPendingOrder');
+        if (!saved) {
+            status.textContent = 'Payment verified, but this browser no longer has the pending order details. Please contact the restaurant with Taler order ID ' + orderId + '.';
+            return;
+        }
+
+        const alreadySaved = sessionStorage.getItem('platinumTalerSaved:' + orderId);
+        if (!alreadySaved) {
+            const orderData = JSON.parse(saved);
+            const client = window.supabase.createClient(
+                'https://rrpnmxucqlpaaueufsmb.supabase.co',
+                'sb_publishable_scPdBcRV7V0X_N1IaZPsw_BxxCvxmN'
+            );
+            const { data: { session } } = await client.auth.getSession();
+            orderData.user_id = session?.user?.id || orderData.user_id || null;
+            orderData.cardtype = 'GNU Taler (Sandbox - KUDOS test)';
+            const { error } = await client.from('orders').insert([orderData]);
+            if (error) throw error;
+            sessionStorage.setItem('platinumTalerSaved:' + orderId, 'yes');
+            sessionStorage.removeItem('platinumTalerPendingOrder');
+        }
+
+        status.style.borderColor = 'green';
+        status.textContent = 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS 5.00 (test currency only).';
+    } catch (error) {
+        console.error('Taler payment verification failed:', error);
+        status.textContent = 'We could not verify this GNU Taler payment: ' + (error.message || 'Unknown error') + '. Your order has not been submitted.';
+    }
+})();
+</script>
