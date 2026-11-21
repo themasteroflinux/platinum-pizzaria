@@ -72,7 +72,13 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
 <script>
 (async function verifyTalerReturn() {
     const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('order_id');
+    const urlOrderId = params.get('order_id');
+    // Prefer the ID supplied by Taler. If an older checkout returned the literal
+    // placeholder, recover the actual ID saved before redirecting to the wallet.
+    const savedOrderId = sessionStorage.getItem('platinumTalerOrderId');
+    const orderId = (urlOrderId && urlOrderId !== '${ORDER_ID}')
+        ? urlOrderId
+        : savedOrderId;
     if (!orderId) return;
 
     const status = document.createElement('p');
@@ -116,8 +122,12 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
             sessionStorage.removeItem('platinumTalerPendingOrder');
         }
 
+        const verifiedOrder = JSON.parse(saved);
+        const verifiedTotal = ['personpizza', 'onemancombo', 'gpizza', 'garbread']
+            .reduce((sum, field) => sum + ((Number.parseInt(verifiedOrder[field], 10) || 0) * 5), 0);
         status.style.borderColor = 'green';
-        status.textContent = 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS 5.00 (test currency only).';
+        status.textContent = 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS ' + verifiedTotal.toFixed(2) + ' (test currency only).';
+        sessionStorage.removeItem('platinumTalerOrderId');
     } catch (error) {
         console.error('Taler payment verification failed:', error);
         status.textContent = 'We could not verify this GNU Taler payment: ' + (error.message || 'Unknown error') + '. Your order has not been submitted.';
