@@ -183,63 +183,36 @@ orderForm.addEventListener('submit', async (e) => {
         }
 
         if (orderData.cardtype === 'GNU Taler (Sandbox)') {
-            // Public GNU Taler sandbox credentials are intentionally used for TESTING ONLY.
-            // Do not reuse this browser-side pattern for a real-money merchant.
-            const backend = 'https://backend.demo.taler.net/instances/sandbox';
-            const auth = 'Bearer secret-token:sandbox';
-            // localStorage survives wallet hand-offs that return in a new tab.
-            // Keep sessionStorage as a fallback for browsers with storage restrictions.
+            // Keep the merchant API token on the server. This endpoint uses the
+            // TALER_API_TOKEN Cloudflare Pages secret and creates the sandbox order.
+            const talerTotal = getTalerOrderTotal(formData);
+            if (!Number.isSafeInteger(talerTotal) || talerTotal <= 0) {
+                throw new Error('Please enter a valid order quantity.');
+            }
+
+            // Save the order details before handing the customer to the Taler wallet.
             const pendingOrderJson = JSON.stringify(orderData);
             try { localStorage.setItem('platinumTalerPendingOrder', pendingOrderJson); } catch (storageError) {
                 console.warn('Could not save pending order in localStorage:', storageError);
             }
             sessionStorage.setItem('platinumTalerPendingOrder', pendingOrderJson);
 
-            const talerTotal = getTalerOrderTotal(formData);
-            if (!Number.isSafeInteger(talerTotal) || talerTotal <= 0) {
-                throw new Error('Please enter a valid order quantity.');
-            }
-
-            const itemSummary = [
-                orderData.personpizza ? orderData.personpizza + ' Personal Pizza' : '',
-                orderData.onemancombo ? orderData.onemancombo + ' One Man Combo' : '',
-                orderData.gpizza ? orderData.gpizza + ' Group Pizza' : '',
-                orderData.garbread ? orderData.garbread + ' Garlic Bread' : ''
-            ].filter(Boolean).join(', ');
-
-            const fulfillment = new URL('thanks.html', window.location.href);
-            fulfillment.searchParams.set('driver', selectedDriver);
-            fulfillment.searchParams.set('name', customerName);
-            // IMPORTANT: Keep ${ORDER_ID} literal and unescaped so GNU Taler can replace it.
-            const fulfillmentUrl = fulfillment.toString() + '&order_id=${ORDER_ID}';
-
-            const createResponse = await fetch(backend + '/private/orders', {
+            const createResponse = await fetch('/api/taler/create-order', {
                 method: 'POST',
-                headers: {
-                    'Authorization': auth,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    order: {
-                        amount: 'KUDOS:' + talerTotal.toFixed(2),
-                        summary: 'Platinum Pizzaria: ' + itemSummary,
-                        fulfillment_url: fulfillmentUrl
-                    },
-                    create_token: false
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
             });
             const created = await createResponse.json();
             if (!createResponse.ok || !created.order_id) {
-                throw new Error(created.detail || created.message || 'GNU Taler could not create the test payment.');
+                throw new Error(created.error || 'GNU Taler could not create the test payment.');
             }
 
             try { localStorage.setItem('platinumTalerOrderId', created.order_id); } catch (storageError) {
                 console.warn('Could not save Taler order ID in localStorage:', storageError);
             }
             sessionStorage.setItem('platinumTalerOrderId', created.order_id);
-            // The public order-status URL starts the wallet checkout when the order is unpaid.
-            // Keep the merchant authorization token out of the customer-facing redirect URL.
-            window.location.assign(backend.replace('/instances/sandbox', '/instances/sandbox') + '/orders/' + encodeURIComponent(created.order_id));
+            // The public order-status URL starts wallet checkout; no merchant token is exposed.
+            window.location.assign('https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(created.order_id));
             return;
         }
 
