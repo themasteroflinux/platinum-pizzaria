@@ -204,8 +204,8 @@ orderForm.addEventListener('submit', async (e) => {
             const fulfillment = new URL('thanks.html', window.location.href);
             fulfillment.searchParams.set('driver', selectedDriver);
             fulfillment.searchParams.set('name', customerName);
-            // GNU Taler replaces this placeholder with the real merchant order ID.
-            fulfillment.searchParams.set('order_id', '${ORDER_ID}');
+            // IMPORTANT: Keep ${ORDER_ID} literal and unescaped so GNU Taler can replace it.
+            const fulfillmentUrl = fulfillment.toString() + '&order_id=${ORDER_ID}';
 
             const createResponse = await fetch(backend + '/private/orders', {
                 method: 'POST',
@@ -217,7 +217,7 @@ orderForm.addEventListener('submit', async (e) => {
                     order: {
                         amount: 'KUDOS:' + talerTotal.toFixed(2),
                         summary: 'Platinum Pizzaria: ' + itemSummary,
-                        fulfillment_url: fulfillment.toString()
+                        fulfillment_url: fulfillmentUrl
                     },
                     create_token: false
                 })
