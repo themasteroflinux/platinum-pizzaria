@@ -187,7 +187,13 @@ orderForm.addEventListener('submit', async (e) => {
             // Do not reuse this browser-side pattern for a real-money merchant.
             const backend = 'https://backend.demo.taler.net/instances/sandbox';
             const auth = 'Bearer secret-token:sandbox';
-            sessionStorage.setItem('platinumTalerPendingOrder', JSON.stringify(orderData));
+            // localStorage survives wallet hand-offs that return in a new tab.
+            // Keep sessionStorage as a fallback for browsers with storage restrictions.
+            const pendingOrderJson = JSON.stringify(orderData);
+            try { localStorage.setItem('platinumTalerPendingOrder', pendingOrderJson); } catch (storageError) {
+                console.warn('Could not save pending order in localStorage:', storageError);
+            }
+            sessionStorage.setItem('platinumTalerPendingOrder', pendingOrderJson);
 
             const talerTotal = getTalerOrderTotal(formData);
             if (!Number.isSafeInteger(talerTotal) || talerTotal <= 0) {
@@ -227,6 +233,9 @@ orderForm.addEventListener('submit', async (e) => {
                 throw new Error(created.detail || created.message || 'GNU Taler could not create the test payment.');
             }
 
+            try { localStorage.setItem('platinumTalerOrderId', created.order_id); } catch (storageError) {
+                console.warn('Could not save Taler order ID in localStorage:', storageError);
+            }
             sessionStorage.setItem('platinumTalerOrderId', created.order_id);
             // The public order-status URL starts the wallet checkout when the order is unpaid.
             // Keep the merchant authorization token out of the customer-facing redirect URL.
