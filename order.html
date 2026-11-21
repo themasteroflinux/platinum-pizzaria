@@ -109,6 +109,11 @@
             <label for="p">PayPal</label><br>
             <input type="radio" id="r" name="payment_method" value="ROTK E-port" required>
             <label for="r">ROTK E-port</label><br>
+            <input type="radio" id="taler_payment" name="payment_method" value="GNU Taler (Sandbox)" required>
+            <label for="taler_payment">GNU Taler (Sandbox — KUDOS test payment)</label><br>
+            <p style="background:#fff3cd;padding:10px;border:1px solid #856404">
+              GNU Taler is currently in sandbox mode. This test checkout charges a fixed KUDOS 5.00 regardless of selected items. KUDOS are test currency, not real money.
+            </p>
             <br><br>
             <input type="submit" value="Place Order">
         </div>
@@ -129,33 +134,84 @@ const orderForm = document.getElementById('orderForm');
 orderForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const formData = new FormData(orderForm);
-    
-    const customerName = formData.get('customer_name');
-    const selectedDriver = formData.get('driver');
+    const submitButton = orderForm.querySelector('input[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.value = 'Processing...';
 
-    const { data: { session } } = await db.auth.getSession();
+    try {
+        const formData = new FormData(orderForm);
+        const customerName = String(formData.get('customer_name') || '').trim();
+        const selectedDriver = String(formData.get('driver') || '');
+        const { data: { session } } = await db.auth.getSession();
 
-    const orderData = {
-        user_id: session?.user?.id || null,
-        driver: selectedDriver,
-        name: customerName,
-        personpizza: parseInt(formData.get('personpizza')) || 0,
-        onemancombo: parseInt(formData.get('onemancombo')) || 0,
-        gpizza: parseInt(formData.get('gpizza')) || 0,
-        garbread: parseInt(formData.get('garbread')) || 0,
-        cardtype: formData.get('payment_method')
-    };
+        const orderData = {
+            user_id: session?.user?.id || null,
+            driver: selectedDriver,
+            name: customerName,
+            personpizza: parseInt(formData.get('personpizza')) || 0,
+            onemancombo: parseInt(formData.get('onemancombo')) || 0,
+            gpizza: parseInt(formData.get('gpizza')) || 0,
+            garbread: parseInt(formData.get('garbread')) || 0,
+            cardtype: formData.get('payment_method')
+        };
 
-    const { data, error } = await db
-        .from('orders') 
-        .insert([orderData]);
+        if (orderData.personpizza + orderData.onemancombo + orderData.gpizza + orderData.garbread === 0) {
+            throw new Error('Please select at least one menu item.');
+        }
 
-    if (error) {
-        console.error('Supabase Error:', error);
-        alert('Error: ' + error.message);
-    } else {
+        if (orderData.cardtype === 'GNU Taler (Sandbox)') {
+            // Public GNU Taler sandbox credentials are intentionally used for TESTING ONLY.
+            // Do not reuse this browser-side pattern for a real-money merchant.
+            const backend = 'https://backend.demo.taler.net/instances/sandbox';
+            const auth = 'Bearer secret-token:sandbox';
+            sessionStorage.setItem('platinumTalerPendingOrder', JSON.stringify(orderData));
+
+            const fulfillment = new URL('thanks.html', window.location.href);
+            fulfillment.searchParams.set('driver', selectedDriver);
+            fulfillment.searchParams.set('name', customerName);
+
+            const createResponse = await fetch(backend + '/private/orders', {
+                method: 'POST',
+                headers: {
+                    'Authorization': auth,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    order: {
+                        amount: 'KUDOS:5',
+                        summary: 'Platinum Pizzaria sandbox test order',
+                        fulfillment_url: fulfillment.toString()
+                    },
+                    create_token: false
+                })
+            });
+            const created = await createResponse.json();
+            if (!createResponse.ok || !created.order_id) {
+                throw new Error(created.detail || created.message || 'GNU Taler could not create the test payment.');
+            }
+
+            sessionStorage.setItem('platinumTalerOrderId', created.order_id);
+            const statusResponse = await fetch(backend + '/private/orders/' + encodeURIComponent(created.order_id), {
+                headers: { 'Authorization': auth }
+            });
+            const status = await statusResponse.json();
+            if (!statusResponse.ok || !status.payment_redirect_url) {
+                throw new Error(status.detail || 'Could not obtain the GNU Taler payment link.');
+            }
+            window.location.assign(status.payment_redirect_url);
+            return;
+        }
+
+        // Existing non-Taler payment methods retain their original order submission flow.
+        const { error } = await db.from('orders').insert([orderData]);
+        if (error) throw error;
+
         window.location.href = `thanks.html?driver=${encodeURIComponent(selectedDriver)}&name=${encodeURIComponent(customerName)}`;
+    } catch (error) {
+        console.error('Order submission error:', error);
+        alert('Unable to place order: ' + (error.message || 'Unknown error'));
+        submitButton.disabled = false;
+        submitButton.value = 'Place Order';
     }
 });
 </script>
