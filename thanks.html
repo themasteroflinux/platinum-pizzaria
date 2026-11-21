@@ -86,6 +86,16 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     status.style.cssText = 'padding:14px;border:2px solid #333;background:#fff;margin:15px 0;font-weight:bold';
     document.body.insertBefore(status, document.body.querySelector('h1'));
 
+    // Give customers a direct link to this specific GNU Taler order.
+    // Use the returned order ID so each checkout links to its own order page.
+    const talerOrderLink = document.createElement('a');
+    talerOrderLink.href = 'https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(orderId);
+    talerOrderLink.textContent = 'View GNU Taler order';
+    talerOrderLink.target = '_blank';
+    talerOrderLink.rel = 'noopener noreferrer';
+    talerOrderLink.style.cssText = 'display:inline-block;margin:0 0 15px;padding:10px 14px;background:#eee;border:1px solid #333;border-radius:5px;color:#000;font-weight:bold';
+    status.insertAdjacentElement('afterend', talerOrderLink);
+
     try {
         status.textContent = 'Verifying GNU Taler sandbox payment...';
         const backend = 'https://backend.demo.taler.net/instances/sandbox';
