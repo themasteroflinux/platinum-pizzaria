@@ -1,6 +1,6 @@
 // Cloudflare Pages Function: create a GNU Taler sandbox order.
 // The merchant API token is read only from the encrypted TALER_API_TOKEN secret.
-const TALER_INSTANCE_URL = "https://backend.demo.taler.net/instances/sandbox";
+const TALER_INSTANCE_URL = "http://rotk-eport.duckdns.org:9966";
 const UNIT_PRICE = 5;
 const QUANTITY_FIELDS = ["personpizza", "onemancombo", "gpizza", "garbread"];
 
