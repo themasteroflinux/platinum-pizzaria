@@ -15,8 +15,9 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "GNU Taler is not configured on the server." }, 503);
   }
 
-  const backendUrl = String(env.TALER_BACKEND_URL || "").trim().replace(/\\/+$/, "");
-  if (!/^https:\\/\\//i.test(backendUrl)) {
+  let backendUrl = String(env.TALER_BACKEND_URL || "").trim();
+  while (backendUrl.endsWith("/")) backendUrl = backendUrl.slice(0, -1);
+  if (!backendUrl.startsWith("https://")) {
     return json({ error: "GNU Taler checkout is waiting for its HTTPS merchant URL. Set TALER_BACKEND_URL after the secure proxy is ready." }, 503);
   }
 
@@ -60,7 +61,8 @@ export async function onRequestPost({ request, env }) {
   fulfillment.searchParams.set("name", customerName);
   const fulfillmentUrl = fulfillment.toString() + "&order_id=${ORDER_ID}";
 
-  const token = String(env.TALER_API_TOKEN).trim().replace(/^Bearer\\s+/i, "");
+  let token = String(env.TALER_API_TOKEN).trim();
+  if (token.toLowerCase().startsWith("bearer ")) token = token.slice(7).trim();
   let upstream;
   try {
     upstream = await fetch(backendUrl + "/private/orders", {
