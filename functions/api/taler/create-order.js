@@ -59,7 +59,7 @@ export async function onRequestPost({ request, env }) {
   const token = String(env.TALER_API_TOKEN).trim().replace(/^Bearer\s+/i, "");
   let upstream;
   try {
-    upstream = await fetch(TALER_INSTANCE_URL + "/private/orders", {
+    upstream = await fetch(backendUrl + "/private/orders", {
       method: "POST",
       headers: {
         "Authorization": "Bearer " + token,
@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env }) {
     }, 502);
   }
 
-  return json({ order_id: result.order_id, amount: "KUDOS:" + total.toFixed(2) });
+  const orderId = String(result.order_id);\n  return json({ order_id: orderId, amount: "KUDOS:" + total.toFixed(2), backend_url: backendUrl, payment_url: backendUrl + "/orders/" + encodeURIComponent(orderId) });
 }
 
 function json(data, status = 200) {

@@ -96,7 +96,7 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     // Give customers a direct link to this specific GNU Taler order.
     // Use the returned order ID so each checkout links to its own order page.
     const talerOrderLink = document.createElement('a');
-    talerOrderLink.href = 'https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(orderId);
+    talerOrderLink.href = (backend || '#') + '/orders/' + encodeURIComponent(orderId);
     talerOrderLink.textContent = 'View GNU Taler order';
     talerOrderLink.target = '_blank';
     talerOrderLink.rel = 'noopener noreferrer';
@@ -104,8 +104,7 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     status.insertAdjacentElement('afterend', talerOrderLink);
 
     try {
-        status.textContent = 'Verifying GNU Taler sandbox payment...';
-        const backend = 'https://backend.demo.taler.net/instances/sandbox';
+        if (!backend || !/^https:\/\//i.test(backend)) { throw new Error('The secure GNU Taler merchant URL was not saved. Please return to checkout and try again.'); }\n        status.textContent = 'Verifying GNU Taler payment...';
         // The public order-status endpoint is intentionally unauthenticated and is
         // designed for browser-based shop integrations. The private endpoint requires
         // a merchant login token and must not expose merchant credentials in this page.
@@ -153,18 +152,18 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
             verifiedOrder = JSON.parse(savedOrderJson);
             const client = window.supabase.createClient(
                 'https://rrpnmxucqlpaaueufsmb.supabase.co',
-                'sb_publishable_scPdBcRV7V0X_NV1IaZPsw_BxxCvxmN'
+                'sb_publishable_scPdBcRV7V0X_VN1IaZPsw_BxxCvxmN'
             );
             const { data: { session } } = await client.auth.getSession();
             verifiedOrder.user_id = session?.user?.id || verifiedOrder.user_id || null;
-            verifiedOrder.cardtype = 'GNU Taler (Sandbox - KUDOS test)';
+            verifiedOrder.cardtype = 'GNU Taler (KUDOS)';
             const { error } = await client.from('orders').insert([verifiedOrder]);
             if (error) throw error;
 
             try {
                 localStorage.setItem(savedFlagKey, 'yes');
                 localStorage.removeItem('platinumTalerPendingOrder');
-                localStorage.removeItem('platinumTalerOrderId');
+                localStorage.removeItem('platinumTalerOrderId');\n                localStorage.removeItem('platinumTalerBackendUrl');
             } catch (_) {}
             sessionStorage.setItem(savedFlagKey, 'yes');
             sessionStorage.removeItem('platinumTalerPendingOrder');
@@ -178,16 +177,16 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
             : null;
         status.style.borderColor = 'green';
         status.textContent = verifiedTotal === null
-            ? 'GNU Taler sandbox payment verified and your order was already submitted. Opening your Taler order...'
-            : 'GNU Taler sandbox payment verified! Your test order was submitted to Platinum Pizzaria. Amount: KUDOS ' + verifiedTotal.toFixed(2) + ' (test currency only). Opening your Taler order...';
+            ? 'GNU Taler payment verified and your order was already submitted. Opening your Taler order...'
+            : 'GNU Taler payment verified! Your order was submitted to Platinum Pizzaria. Amount: KUDOS ' + verifiedTotal.toFixed(2) + '. Opening your Taler order...';
 
-        const talerOrderUrl = 'https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(orderId);
+        const talerOrderUrl = backend + '/orders/' + encodeURIComponent(orderId);
         talerOrderLink.href = talerOrderUrl;
         talerOrderLink.textContent = 'Open GNU Taler order now';
         try {
             localStorage.removeItem('platinumTalerOrderId');
         } catch (_) {}
-        sessionStorage.removeItem('platinumTalerOrderId');
+        sessionStorage.removeItem('platinumTalerOrderId');\n        sessionStorage.removeItem('platinumTalerBackendUrl');
 
         // Automatically open the confirmed order page after the restaurant order is saved.
         window.setTimeout(() => window.location.replace(talerOrderUrl), 1800);

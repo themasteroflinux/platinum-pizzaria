@@ -109,10 +109,10 @@
             <label for="p">PayPal</label><br>
             <input type="radio" id="r" name="payment_method" value="ROTK E-port" required>
             <label for="r">ROTK E-port</label><br>
-            <input type="radio" id="taler_payment" name="payment_method" value="GNU Taler (Sandbox)" required>
-            <label for="taler_payment">GNU Taler (Sandbox — KUDOS test payment)</label><br>
+            <input type="radio" id="taler_payment" name="payment_method" value="GNU Taler" required>
+            <label for="taler_payment">GNU Taler (KUDOS)</label><br>
             <p id="taler-price-note" style="background:#fff3cd;padding:10px;border:1px solid #856404">
-              GNU Taler sandbox prices: Personal Pizza KUDOS 5.00, One Man Combo KUDOS 5.00, Group Pizza KUDOS 5.00, Garlic Bread KUDOS 5.00. Your total is calculated from the quantities selected. KUDOS are test currency, not real money.
+              Self-hosted GNU Taler checkout. Each menu item is KUDOS 5.00.
               <br><strong>GNU Taler total: <span id="taler-total">KUDOS 0.00</span></strong>
             </p>
             <br><br>
@@ -132,7 +132,7 @@ db.auth.getSession().then(({data:{session}})=>{ accountNote.textContent=session?
 
 const orderForm = document.getElementById('orderForm');
 
-// Current GNU Taler sandbox inventory prices. All four inventory items are KUDOS 5.00 each.
+// GNU Taler inventory prices. All four inventory items are KUDOS 5.00 each.
 const TALER_UNIT_PRICE = 5;
 const talerQuantityFields = ['personpizza', 'onemancombo', 'gpizza', 'garbread'];
 const talerTotalDisplay = document.getElementById('taler-total');
@@ -182,9 +182,9 @@ orderForm.addEventListener('submit', async (e) => {
             throw new Error('Please select at least one menu item.');
         }
 
-        if (orderData.cardtype === 'GNU Taler (Sandbox)') {
+        if (orderData.cardtype === 'GNU Taler') {
             // Keep the merchant API token on the server. This endpoint uses the
-            // TALER_API_TOKEN Cloudflare Pages secret and creates the sandbox order.
+            // TALER_API_TOKEN Cloudflare Pages secret and creates a merchant order.
             const talerTotal = getTalerOrderTotal(formData);
             if (!Number.isSafeInteger(talerTotal) || talerTotal <= 0) {
                 throw new Error('Please enter a valid order quantity.');
@@ -204,15 +204,15 @@ orderForm.addEventListener('submit', async (e) => {
             });
             const created = await createResponse.json();
             if (!createResponse.ok || !created.order_id) {
-                throw new Error(created.error || 'GNU Taler could not create the test payment.');
+                throw new Error(created.error || 'GNU Taler could not create the payment.');
             }
 
-            try { localStorage.setItem('platinumTalerOrderId', created.order_id); } catch (storageError) {
+            try { localStorage.setItem('platinumTalerOrderId', created.order_id); localStorage.setItem('platinumTalerBackendUrl', created.backend_url); } catch (storageError) {
                 console.warn('Could not save Taler order ID in localStorage:', storageError);
             }
-            sessionStorage.setItem('platinumTalerOrderId', created.order_id);
+            sessionStorage.setItem('platinumTalerOrderId', created.order_id);\n            sessionStorage.setItem('platinumTalerBackendUrl', created.backend_url);
             // The public order-status URL starts wallet checkout; no merchant token is exposed.
-            window.location.assign('https://backend.demo.taler.net/instances/sandbox/orders/' + encodeURIComponent(created.order_id));
+            window.location.assign(created.payment_url);
             return;
         }
 
