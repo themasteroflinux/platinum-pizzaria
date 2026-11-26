@@ -210,7 +210,8 @@ orderForm.addEventListener('submit', async (e) => {
             try { localStorage.setItem('platinumTalerOrderId', created.order_id); localStorage.setItem('platinumTalerBackendUrl', created.backend_url); } catch (storageError) {
                 console.warn('Could not save Taler order ID in localStorage:', storageError);
             }
-            sessionStorage.setItem('platinumTalerOrderId', created.order_id);\n            sessionStorage.setItem('platinumTalerBackendUrl', created.backend_url);
+            sessionStorage.setItem('platinumTalerOrderId', created.order_id);
+            sessionStorage.setItem('platinumTalerBackendUrl', created.backend_url);
             // The public order-status URL starts wallet checkout; no merchant token is exposed.
             window.location.assign(created.payment_url);
             return;

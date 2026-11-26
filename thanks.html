@@ -104,7 +104,8 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
     status.insertAdjacentElement('afterend', talerOrderLink);
 
     try {
-        if (!backend || !/^https:\/\//i.test(backend)) { throw new Error('The secure GNU Taler merchant URL was not saved. Please return to checkout and try again.'); }\n        status.textContent = 'Verifying GNU Taler payment...';
+        if (!backend || !/^https:\/\//i.test(backend)) { throw new Error('The secure GNU Taler merchant URL was not saved. Please return to checkout and try again.'); }
+        status.textContent = 'Verifying GNU Taler payment...';
         // The public order-status endpoint is intentionally unauthenticated and is
         // designed for browser-based shop integrations. The private endpoint requires
         // a merchant login token and must not expose merchant credentials in this page.
@@ -163,7 +164,8 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
             try {
                 localStorage.setItem(savedFlagKey, 'yes');
                 localStorage.removeItem('platinumTalerPendingOrder');
-                localStorage.removeItem('platinumTalerOrderId');\n                localStorage.removeItem('platinumTalerBackendUrl');
+                localStorage.removeItem('platinumTalerOrderId');
+                localStorage.removeItem('platinumTalerBackendUrl');
             } catch (_) {}
             sessionStorage.setItem(savedFlagKey, 'yes');
             sessionStorage.removeItem('platinumTalerPendingOrder');
@@ -186,7 +188,8 @@ document.getElementById("name").innerHTML = "Order Name: " + name;
         try {
             localStorage.removeItem('platinumTalerOrderId');
         } catch (_) {}
-        sessionStorage.removeItem('platinumTalerOrderId');\n        sessionStorage.removeItem('platinumTalerBackendUrl');
+        sessionStorage.removeItem('platinumTalerOrderId');
+        sessionStorage.removeItem('platinumTalerBackendUrl');
 
         // Automatically open the confirmed order page after the restaurant order is saved.
         window.setTimeout(() => window.location.replace(talerOrderUrl), 1800);

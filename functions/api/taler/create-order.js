@@ -1,6 +1,6 @@
-// Cloudflare Pages Function: create a GNU Taler sandbox order.
-// The merchant API token is read only from the encrypted TALER_API_TOKEN secret.
-const TALER_INSTANCE_URL = "http://rotk-eport.duckdns.org:9966";
+// Cloudflare Pages Function: create an order on the self-hosted GNU Taler merchant.
+// Set TALER_BACKEND_URL to the HTTPS base URL of the default/admin instance.
+// Keep the machine access token in the encrypted TALER_API_TOKEN secret only.
 const UNIT_PRICE = 5;
 const QUANTITY_FIELDS = ["personpizza", "onemancombo", "gpizza", "garbread"];
 
@@ -13,6 +13,11 @@ export async function onRequestPost({ request, env }) {
 
   if (!env.TALER_API_TOKEN) {
     return json({ error: "GNU Taler is not configured on the server." }, 503);
+  }
+
+  const backendUrl = String(env.TALER_BACKEND_URL || "").trim().replace(/\\/+$/, "");
+  if (!/^https:\\/\\//i.test(backendUrl)) {
+    return json({ error: "GNU Taler checkout is waiting for its HTTPS merchant URL. Set TALER_BACKEND_URL after the secure proxy is ready." }, 503);
   }
 
   let input;
@@ -53,10 +58,9 @@ export async function onRequestPost({ request, env }) {
   const fulfillment = new URL("/thanks.html", requestUrl.origin);
   fulfillment.searchParams.set("driver", driver);
   fulfillment.searchParams.set("name", customerName);
-  // Taler replaces this literal placeholder with the actual order ID.
   const fulfillmentUrl = fulfillment.toString() + "&order_id=${ORDER_ID}";
 
-  const token = String(env.TALER_API_TOKEN).trim().replace(/^Bearer\s+/i, "");
+  const token = String(env.TALER_API_TOKEN).trim().replace(/^Bearer\\s+/i, "");
   let upstream;
   try {
     upstream = await fetch(backendUrl + "/private/orders", {
@@ -82,7 +86,6 @@ export async function onRequestPost({ request, env }) {
   let result = {};
   try { result = await upstream.json(); } catch {}
   if (!upstream.ok || !result.order_id) {
-    // Do not return upstream headers or credentials to the browser.
     const detail = result.detail || result.message;
     return json({
       error: detail ? "GNU Taler rejected the order: " + String(detail).slice(0, 300) :
@@ -90,7 +93,13 @@ export async function onRequestPost({ request, env }) {
     }, 502);
   }
 
-  const orderId = String(result.order_id);\n  return json({ order_id: orderId, amount: "KUDOS:" + total.toFixed(2), backend_url: backendUrl, payment_url: backendUrl + "/orders/" + encodeURIComponent(orderId) });
+  const orderId = String(result.order_id);
+  return json({
+    order_id: orderId,
+    amount: "KUDOS:" + total.toFixed(2),
+    backend_url: backendUrl,
+    payment_url: backendUrl + "/orders/" + encodeURIComponent(orderId)
+  });
 }
 
 function json(data, status = 200) {
